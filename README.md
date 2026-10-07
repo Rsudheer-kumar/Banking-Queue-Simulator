@@ -111,3 +111,26 @@ Unit tests verify:
 * Bank history deque and formatted timestamps (`%I:%M %p`).
 * Token generation (`N-001...`, `V-001...`) and reset behavior.
 * Prompt Requirement 22 End-to-End Test Scenario.
+
+## Problem Statement
+
+Banks need to serve normal and VIP customers efficiently while distributing work across multiple service counters. This simulator demonstrates FIFO queues, priority queues, and min-heap-based smart counter allocation in a working browser application.
+
+## Installation and VS Code Setup
+
+1. Install a C++ compiler such as MinGW-w64 and Python on Windows.
+2. Open this project folder in VS Code.
+3. Ensure `g++`, `python`, and (optionally) CMake are available in the integrated terminal.
+4. No external database or API key is required.
+
+## DSA Explanation
+
+Normal customers use `std::queue<Customer>` and are served FIFO. VIP customers use a per-desk `std::priority_queue<Customer, ...>` ordered by priority and arrival sequence. Desk allocation uses `std::priority_queue<DeskEntry, ...>` with an inverted comparator to provide min-heap behavior, selecting the least-loaded desk with deterministic tie-breaking. See [docs/dsa-explanation.md](docs/dsa-explanation.md) for complexity details.
+
+## Project Limitations
+
+Queue, statistics, and recently served history data are stored in memory inside the C++ backend. Restarting the backend clears active data. The current HTTP server is intended for local demonstration and is not configured as a production-grade authenticated service.
+
+## Deployment Notes
+
+The frontend is static HTML, CSS, and vanilla JavaScript and can be served by any static web server. The C++ backend must run separately and be reachable by the frontend. Update the centralized API base URL in `frontend/app.js` when deploying the frontend and backend on different hosts. The supplied batch files target Windows; adapt the compiler and server commands for other platforms.
