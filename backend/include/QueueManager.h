@@ -6,6 +6,7 @@
 #include <queue>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 struct DeskEntry {
     std::size_t load{0};
@@ -28,6 +29,12 @@ public:
 
     Customer addCustomer(const std::string& name, CustomerType type, int priority);
     Customer serveNext(int deskId = 0);
+    bool callNext(Customer& called, int deskId = 0);
+    bool startService(Customer& customer, int deskId);
+    bool completeService(Customer& customer, int deskId);
+    bool skipCustomer(Customer& customer, int deskId);
+    bool returnSkipped(Customer& customer, int deskId);
+    void refreshServiceStates();
     bool peekNext(Customer& next, int deskId = 0) const;
 
     bool hasWaitingCustomers() const;

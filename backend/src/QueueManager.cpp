@@ -3,6 +3,14 @@
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <chrono>
+
+namespace {
+std::int64_t nowSeconds() {
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+}
 
 QueueManager::QueueManager() {
     initDesks();
@@ -118,6 +126,7 @@ Customer QueueManager::serveNext(int deskId) {
         if (!targetDesk.hasWaitingCustomers()) {
             throw std::runtime_error("No customers are currently waiting at " + targetDesk.name() + ".");
         }
+
         Customer served = targetDesk.serveNext();
         deskHeap_.push({targetDesk.totalWaiting(), targetDesk.id(), targetDesk.version()});
         return served;
@@ -158,6 +167,65 @@ Customer QueueManager::serveNext(int deskId) {
     Customer served = targetDesk.serveNext();
     deskHeap_.push({targetDesk.totalWaiting(), targetDesk.id(), targetDesk.version()});
     return served;
+}
+
+void QueueManager::refreshServiceStates() {
+    const auto now = nowSeconds();
+    for (auto& desk : desks_) desk.expireActive(now);
+}
+
+bool QueueManager::callNext(Customer& called, int deskId) {
+    refreshServiceStates();
+    int target = deskId;
+    if (target < 1) {
+        Customer candidate;
+        int bestDesk = 0;
+        bool foundVip = false;
+        for (const auto& desk : desks_) {
+            if (desk.hasActiveCustomer() || !desk.peekNext(candidate)) continue;
+            if (!foundVip && (bestDesk == 0 || candidate.type == CustomerType::Vip)) {
+                bestDesk = desk.id();
+                foundVip = candidate.type == CustomerType::Vip;
+            } else if (candidate.type == CustomerType::Vip && foundVip) {
+                Customer best;
+                desks_[bestDesk - 1].peekNext(best);
+                if (candidate.priority < best.priority ||
+                    (candidate.priority == best.priority && desk.id() < bestDesk)) {
+                    bestDesk = desk.id();
+                }
+            }
+        }
+        target = bestDesk;
+    }
+    if (target < 1 || target > static_cast<int>(desks_.size())) return false;
+    const auto now = nowSeconds();
+    const bool result = desks_[target - 1].callNext(called, now, now + 60);
+    if (result) deskHeap_.push({desks_[target - 1].totalWaiting(), target, desks_[target - 1].version()});
+    return result;
+}
+
+bool QueueManager::startService(Customer& customer, int deskId) {
+    refreshServiceStates();
+    if (deskId < 1 || deskId > static_cast<int>(desks_.size())) return false;
+    return desks_[deskId - 1].startService(customer, nowSeconds());
+}
+
+bool QueueManager::completeService(Customer& customer, int deskId) {
+    if (deskId < 1 || deskId > static_cast<int>(desks_.size())) return false;
+    return desks_[deskId - 1].completeService(customer);
+}
+
+bool QueueManager::skipCustomer(Customer& customer, int deskId) {
+    refreshServiceStates();
+    if (deskId < 1 || deskId > static_cast<int>(desks_.size())) return false;
+    return desks_[deskId - 1].skipActive(customer);
+}
+
+bool QueueManager::returnSkipped(Customer& customer, int deskId) {
+    if (deskId < 1 || deskId > static_cast<int>(desks_.size())) return false;
+    const bool result = desks_[deskId - 1].returnSkipped(customer);
+    if (result) deskHeap_.push({desks_[deskId - 1].totalWaiting(), deskId, desks_[deskId - 1].version()});
+    return result;
 }
 
 bool QueueManager::peekNext(Customer& next, int deskId) const {

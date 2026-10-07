@@ -106,6 +106,18 @@ function renderDesks(queue) {
   const desks = queue.desks || [];
   $("#deskCards").innerHTML = desks.map((desk) => {
     const next = desk.nextCustomer;
+    const active = desk.activeCustomer || desk.skippedCustomer;
+    const activeState = active?.serviceState;
+    const action = activeState === "CALLED"
+      ? `<button class="button button-primary full desk-action" data-action="start-service" data-desk-id="${desk.id}">Start service</button><button class="button button-quiet full desk-action" data-action="skip" data-desk-id="${desk.id}">Skip</button>`
+      : activeState === "IN_SERVICE"
+        ? `<button class="button button-primary full desk-action" data-action="complete-service" data-desk-id="${desk.id}">Complete service</button>`
+        : activeState === "SKIPPED"
+          ? `<button class="button button-primary full desk-action" data-action="call" data-desk-id="${desk.id}">Call next</button><button class="button button-quiet full desk-action" data-action="return-to-queue" data-desk-id="${desk.id}">Return to queue</button>`
+          : `<button class="button button-primary full desk-action" data-action="call" data-desk-id="${desk.id}" ${next ? "" : "disabled"}>Call next <span>→</span></button>`;
+    const activeLine = active
+      ? `<div class="desk-next"><small>${activeState === "CALLED" ? "NOW CALLED" : activeState === "IN_SERVICE" ? "IN SERVICE" : "CUSTOMER SKIPPED"}</small><div><b>${escapeHtml(active.token)}</b> <span>${escapeHtml(active.name)}</span></div>${activeState === "CALLED" ? `<small class="grace-timer" data-deadline="${active.callDeadline}">01:00</small>` : ""}</div>`
+      : "";
     const nextLine = next
       ? `<b>${escapeHtml(next.token)}</b> <span>${escapeHtml(next.name)}</span>${next.type === "VIP" ? ` <em>${escapeHtml(next.priorityLabel)}</em>` : ""}`
       : '<span class="desk-empty">No customers waiting</span>';
@@ -114,14 +126,15 @@ function renderDesks(queue) {
       <div class="desk-card-heading"><h3>${escapeHtml(desk.name)}</h3><span>${desk.totalWaiting} waiting</span></div>
       <div class="load-bar"><span style="width:${width}%"></span></div>
       <div class="desk-stats"><span>Normal <b>${desk.normalWaiting}</b></span><span>VIP <b>${desk.vipWaiting}</b></span><span>Served <b>${desk.servedCount}</b></span></div>
-      <div class="desk-next"><small>NEXT CUSTOMER</small><div>${nextLine}</div></div>
-      <button class="button button-primary full desk-serve" data-desk-id="${desk.id}" ${next ? "" : "disabled"}>Serve next <span>→</span></button>
+      ${activeLine || `<div class="desk-next"><small>NEXT CUSTOMER</small><div>${nextLine}</div></div>`}
+      ${action}
     </article>`;
   }).join("") || '<div class="empty">No service counters available</div>';
 
-  document.querySelectorAll(".desk-serve").forEach((button) => {
-    button.addEventListener("click", () => serveDesk(Number(button.dataset.deskId), button));
+  document.querySelectorAll(".desk-action").forEach((button) => {
+    button.addEventListener("click", () => deskAction(button.dataset.action, Number(button.dataset.deskId), button));
   });
+  updateTimers();
 }
 
 function renderHistory() {
@@ -215,7 +228,7 @@ $("#customerForm").addEventListener("submit", async (event) => {
 
 // Serve Next Customer
 let isServing = false;
-async function serveDesk(deskId, sourceButton = $("#serveButton")) {
+async function deskAction(action, deskId, sourceButton = $("#serveButton")) {
   if (isServing) return;
   isServing = true;
   const button = sourceButton;
@@ -223,13 +236,13 @@ async function serveDesk(deskId, sourceButton = $("#serveButton")) {
 
   try {
     const body = deskId > 0 ? JSON.stringify({ deskId }) : undefined;
-    const data = await request("/serve", { method: "POST", body });
+    const data = await request(`/${action}`, { method: "POST", body });
     const cust = data.customer;
     const timeStr = cust.servedTime ? ` at ${cust.servedTime}` : "";
     const priorityStr = cust.priorityLabel ? ` · ${cust.priorityLabel}` : "";
     setMessage(
       $("#serveMessage"),
-      `Now serving ${cust.token} — ${cust.name} from ${cust.assignedDesk || data.servedDesk || "desk"} (${cust.type}${priorityStr})${timeStr}`,
+      `${data.message || `Updated ${cust.token} — ${cust.name}`} ${cust.serviceState ? `(${cust.serviceState})` : ""}`,
       "success"
     );
     await refresh();
@@ -241,7 +254,18 @@ async function serveDesk(deskId, sourceButton = $("#serveButton")) {
   }
 }
 
-$("#serveButton").addEventListener("click", () => serveDesk(0));
+$("#serveButton").addEventListener("click", () => deskAction("call", 0));
+
+function updateTimers() {
+  document.querySelectorAll(".grace-timer").forEach((timer) => {
+    const remaining = Math.max(0, Number(timer.dataset.deadline) - Math.floor(Date.now() / 1000));
+    timer.textContent = `00:${String(remaining).padStart(2, "0")}`;
+  });
+}
+setInterval(() => {
+  updateTimers();
+  if (state.queue) refresh().catch(() => {});
+}, 1000);
 
 // Reset Simulator
 let isResetting = false;

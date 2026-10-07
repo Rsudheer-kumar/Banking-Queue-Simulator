@@ -21,6 +21,15 @@ public:
     bool hasNormalCustomers() const;
     bool peekNext(Customer& customer) const;
     Customer serveNext();
+    bool hasActiveCustomer() const { return hasActiveCustomer_; }
+    const Customer* activeCustomer() const { return hasActiveCustomer_ ? &activeCustomer_ : nullptr; }
+    const Customer* skippedCustomer() const { return hasSkippedCustomer_ ? &skippedCustomer_ : nullptr; }
+    bool callNext(Customer& customer, std::int64_t now, std::int64_t deadline);
+    bool startService(Customer& customer, std::int64_t now);
+    bool skipActive(Customer& customer);
+    bool completeService(Customer& customer);
+    bool returnSkipped(Customer& customer);
+    void expireActive(std::int64_t now);
 
     std::size_t normalWaiting() const { return normalQueue_.size(); }
     std::size_t vipWaiting() const { return vipQueue_.size(); }
@@ -49,4 +58,8 @@ private:
     std::priority_queue<Customer, std::vector<Customer>, VipCompare> vipQueue_;
     std::size_t servedCount_{0};
     unsigned long long version_{1};
+    Customer activeCustomer_;
+    bool hasActiveCustomer_{false};
+    Customer skippedCustomer_;
+    bool hasSkippedCustomer_{false};
 };

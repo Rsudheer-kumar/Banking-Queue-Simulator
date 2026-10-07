@@ -40,5 +40,9 @@ target_include_directories(bank_server PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/thir
 add_executable(bank_tests tests/queue_manager_tests.cpp)
 target_link_libraries(bank_tests PRIVATE bank_core)
 
+add_executable(service_flow_tests tests/service_flow_tests.cpp)
+target_link_libraries(service_flow_tests PRIVATE bank_core)
+
 enable_testing()
 add_test(NAME bank_tests COMMAND bank_tests)
+add_test(NAME service_flow_tests COMMAND service_flow_tests)

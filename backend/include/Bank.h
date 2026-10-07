@@ -5,11 +5,18 @@
 #include <deque>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 class Bank {
 public:
     Customer addCustomer(const std::string& name, CustomerType type, int priority);
     bool serveNext(Customer& served, int deskId = 0);
+    bool callNext(Customer& called, int deskId = 0);
+    bool startService(Customer& customer, int deskId);
+    bool completeService(Customer& customer, int deskId);
+    bool skipCustomer(Customer& customer, int deskId);
+    bool returnSkipped(Customer& customer, int deskId);
+    void refreshServiceStates();
     bool peekNext(Customer& next, int deskId = 0) const { return queues_.peekNext(next, deskId); }
     void reset();
 

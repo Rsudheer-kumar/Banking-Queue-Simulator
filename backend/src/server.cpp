@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cctype>
+#include <chrono>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -18,6 +19,11 @@
 using json = nlohmann::json;
 
 namespace {
+std::int64_t nowSeconds() {
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
 json customerJson(const Customer& customer) {
     json result{
         {"token", customer.token},
@@ -27,6 +33,14 @@ json customerJson(const Customer& customer) {
         {"assignedDesk", customer.assignedDeskName},
         {"assignedDeskId", customer.assignedDeskId}
     };
+    result["serviceState"] = serviceStateName(customer.serviceState);
+    result["callStartedAt"] = customer.callStartedAt;
+    result["callDeadline"] = customer.callDeadline;
+    result["remainingSeconds"] = customer.callDeadline > 0
+        ? std::max<std::int64_t>(0, customer.callDeadline - nowSeconds()) : 0;
+    if (!customer.serviceStartedTime.empty()) {
+        result["serviceStartedTime"] = customer.serviceStartedTime;
+    }
     if (customer.type == CustomerType::Vip) {
         result["priorityLabel"] = priorityName(customer.priority);
     }
@@ -61,6 +75,16 @@ json deskJson(const Desk& desk) {
         result["nextCustomer"] = customerJson(next);
     } else {
         result["nextCustomer"] = nullptr;
+    }
+    if (desk.activeCustomer()) {
+        result["activeCustomer"] = customerJson(*desk.activeCustomer());
+    } else {
+        result["activeCustomer"] = nullptr;
+    }
+    if (desk.skippedCustomer()) {
+        result["skippedCustomer"] = customerJson(*desk.skippedCustomer());
+    } else {
+        result["skippedCustomer"] = nullptr;
     }
     return result;
 }
@@ -119,6 +143,7 @@ std::string handleRequest(Bank& bank, const std::string& request) {
     }
 
     if (method == "GET" && (path == "/api/queue" || path == "/api/stats" || path == "/api/desks")) {
+        bank.refreshServiceStates();
         json result{
             {"success", true},
             {"normalWaiting", bank.queues().normalSize()},
@@ -269,6 +294,56 @@ std::string handleRequest(Bank& bank, const std::string& request) {
             {"servedDesk", served.assignedDeskName},
             {"servedDeskId", served.assignedDeskId},
             {"message", "Customer served successfully from " + served.assignedDeskName + "."}
+        }, 200, "OK");
+    }
+
+    const std::vector<std::string> serviceActions = {
+        "/api/call", "/api/start-service", "/api/complete-service",
+        "/api/skip", "/api/return-to-queue"
+    };
+    if (method == "POST" &&
+        std::find(serviceActions.begin(), serviceActions.end(), path) != serviceActions.end()) {
+        int deskId = 0;
+        try {
+            const json input = body.empty() ? json::object() : json::parse(body);
+            if (path == "/api/call" && !input.contains("deskId")) {
+                deskId = 0;
+            } else if (!input.contains("deskId") || !input["deskId"].is_number_integer()) {
+                return errorResponse("deskId must be an integer from 1 to 4.");
+            } else {
+                deskId = input["deskId"].get<int>();
+                if (deskId < 1 || deskId > 4) return errorResponse("deskId must be an integer from 1 to 4.");
+            }
+        } catch (const json::parse_error&) {
+            return errorResponse("Malformed JSON request body.");
+        }
+
+        Customer customer;
+        bool success = false;
+        std::string message;
+        if (path == "/api/call") {
+            success = bank.callNext(customer, deskId);
+            message = "Customer called. The customer has 1 minute to arrive.";
+        } else if (path == "/api/start-service") {
+            success = bank.startService(customer, deskId);
+            message = "Service started.";
+        } else if (path == "/api/complete-service") {
+            success = bank.completeService(customer, deskId);
+            message = "Customer service completed.";
+        } else if (path == "/api/skip") {
+            success = bank.skipCustomer(customer, deskId);
+            message = "Customer skipped because they did not arrive.";
+        } else {
+            success = bank.returnSkipped(customer, deskId);
+            message = "Customer returned to the end of the waiting queue.";
+        }
+        if (!success) return errorResponse("The requested desk action is not valid for its current customer state.", 409);
+        if (deskId == 0) deskId = customer.assignedDeskId;
+        return jsonResponse({
+            {"success", true},
+            {"customer", customerJson(customer)},
+            {"desk", deskJson(bank.queues().desk(deskId))},
+            {"message", message}
         }, 200, "OK");
     }
 
