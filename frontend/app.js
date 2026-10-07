@@ -122,23 +122,6 @@ function renderDesks(queue) {
   document.querySelectorAll(".desk-serve").forEach((button) => {
     button.addEventListener("click", () => serveDesk(Number(button.dataset.deskId), button));
   });
-
-  const heap = queue.minHeap || [];
-  $("#heapViz").innerHTML = heap.length
-    ? heap.map((entry, index) => `<span class="heap-node ${index === 0 ? "selected" : ""}">${escapeHtml(entry.name)} <b>${entry.load}</b>${index === 0 ? " · TOP" : ""}</span>`).join('<span class="viz-arrow">→</span>')
-    : '<span class="viz-empty">No desk state available</span>';
-
-  $("#deskViz").innerHTML = desks.map((desk) => {
-    const normal = desk.normalQueue || [];
-    const vip = desk.vipQueue || [];
-    const normalNodes = normal.length
-      ? normal.map((customer) => `<span class="viz-node">${escapeHtml(customer.token)}</span>`).join('<span class="viz-arrow">→</span>')
-      : '<span class="viz-empty">empty</span>';
-    const vipNodes = vip.length
-      ? vip.map((customer) => `<span class="viz-node">${escapeHtml(customer.token)} · ${escapeHtml(customer.priorityLabel)}</span>`).join('<span class="viz-arrow">↓</span>')
-      : '<span class="viz-empty">empty</span>';
-    return `<div class="desk-viz"><b>${escapeHtml(desk.name)}</b><div class="viz-title"><span class="dot blue-dot"></span>std::queue&lt;Customer&gt; <small>FIFO · FRONT → REAR</small></div><div class="viz-track">${normalNodes}</div><div class="viz-title"><span class="dot amber-dot"></span>std::priority_queue&lt;Customer&gt; <small>TOP → lower priority</small></div><div class="viz-track vertical">${vipNodes}</div></div>`;
-  }).join("");
 }
 
 function renderHistory() {
