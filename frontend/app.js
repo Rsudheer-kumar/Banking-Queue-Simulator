@@ -222,7 +222,8 @@ async function serveDesk(deskId, sourceButton = $("#serveButton")) {
   button.disabled = true;
 
   try {
-    const data = await request("/serve", { method: "POST", body: JSON.stringify({ deskId }) });
+    const body = deskId > 0 ? JSON.stringify({ deskId }) : undefined;
+    const data = await request("/serve", { method: "POST", body });
     const cust = data.customer;
     const timeStr = cust.servedTime ? ` at ${cust.servedTime}` : "";
     const priorityStr = cust.priorityLabel ? ` · ${cust.priorityLabel}` : "";
