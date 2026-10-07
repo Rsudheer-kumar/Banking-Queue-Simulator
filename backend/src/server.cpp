@@ -1,9 +1,14 @@
 #include "Bank.h"
 
 #include <nlohmann/json.hpp>
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#if defined(_WIN32) && !defined(WINAPI_FAMILY_PARTITION)
+// Older MinGW headers do not define the Windows Store partition macros used
+// by cpp-httplib's optional file-serving implementation.
+#define WINAPI_FAMILY_PARTITION(...) 0
+#endif
+#include <httplib/httplib.h>
 #include <algorithm>
+#include <cstdlib>
 #include <cctype>
 #include <iostream>
 #include <sstream>
@@ -79,51 +84,6 @@ std::string errorResponse(const std::string& message, int status = 400) {
     else if (status == 409) statusText = "Conflict";
     else if (status == 500) statusText = "Internal Server Error";
     return jsonResponse({{"success", false}, {"message", message}}, status, statusText);
-}
-
-std::string readRequest(SOCKET client) {
-    std::string request;
-    char buffer[4096];
-    size_t headerEnd = std::string::npos;
-    while (headerEnd == std::string::npos && request.size() < 1024 * 1024) {
-        const int received = recv(client, buffer, sizeof(buffer), 0);
-        if (received <= 0) return {};
-        request.append(buffer, received);
-        headerEnd = request.find("\r\n\r\n");
-    }
-
-    if (headerEnd == std::string::npos) return {};
-
-    // Parse Content-Length case-insensitively
-    size_t contentLength = 0;
-    std::string lowerHeaders = request.substr(0, headerEnd);
-    std::transform(lowerHeaders.begin(), lowerHeaders.end(), lowerHeaders.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-
-    const std::string marker = "content-length:";
-    const auto markerPosition = lowerHeaders.find(marker);
-    if (markerPosition != std::string::npos) {
-        const auto lineEnd = lowerHeaders.find("\r\n", markerPosition);
-        const auto valStart = markerPosition + marker.size();
-        const auto valLen = (lineEnd == std::string::npos ? lowerHeaders.size() : lineEnd) - valStart;
-        std::string numStr = lowerHeaders.substr(valStart, valLen);
-        const auto firstDigit = numStr.find_first_not_of(" \t");
-        if (firstDigit != std::string::npos) {
-            try {
-                contentLength = static_cast<size_t>(std::stoul(numStr.substr(firstDigit)));
-            } catch (...) {
-                contentLength = 0;
-            }
-        }
-    }
-
-    const size_t bodyStart = headerEnd + 4;
-    while (request.size() - bodyStart < contentLength) {
-        const int received = recv(client, buffer, sizeof(buffer), 0);
-        if (received <= 0) break;
-        request.append(buffer, received);
-    }
-    return request;
 }
 
 std::string handleRequest(Bank& bank, const std::string& request) {
@@ -347,60 +307,60 @@ std::string handleRequest(Bank& bank, const std::string& request) {
 }
 
 int main() {
-    WSADATA windowsSockets;
-    if (WSAStartup(MAKEWORD(2, 2), &windowsSockets) != 0) {
-        std::cerr << "Unable to initialize Windows sockets.\n";
-        return 1;
-    }
-
-    SOCKET listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (listener == INVALID_SOCKET) {
-        std::cerr << "Unable to create API socket.\n";
-        WSACleanup();
-        return 1;
-    }
-
-    int opt = 1;
-    setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&opt), sizeof(opt));
-
-    sockaddr_in address{};
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = htonl(INADDR_ANY);
-    address.sin_port = htons(8080);
-    if (bind(listener, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == SOCKET_ERROR ||
-        listen(listener, SOMAXCONN) == SOCKET_ERROR) {
-        std::cerr << "Unable to start API on port 8080. Check if another process is using port 8080.\n";
-        closesocket(listener);
-        WSACleanup();
-        return 1;
-    }
-
     Bank bank;
+    int port = 8080;
+    if (const char* portValue = std::getenv("PORT")) {
+        try {
+            const long parsedPort = std::stol(portValue);
+            if (parsedPort < 1 || parsedPort > 65535) {
+                throw std::out_of_range("port out of range");
+            }
+            port = static_cast<int>(parsedPort);
+        } catch (const std::exception&) {
+            std::cerr << "PORT must be an integer between 1 and 65535.\n";
+            return 1;
+        }
+    }
+
+    httplib::Server server;
+    auto handle = [&bank](const httplib::Request& request, httplib::Response& response) {
+        std::ostringstream rawRequest;
+        rawRequest << request.method << " " << request.target << " HTTP/1.1\r\n\r\n" << request.body;
+        const std::string rawResponse = handleRequest(bank, rawRequest.str());
+
+        const auto statusLineEnd = rawResponse.find("\r\n");
+        const auto bodyStart = rawResponse.find("\r\n\r\n");
+        if (statusLineEnd == std::string::npos || bodyStart == std::string::npos) {
+            response.status = 500;
+            response.set_content(R"({"success":false,"message":"Malformed server response."})",
+                                 "application/json; charset=utf-8");
+            return;
+        }
+
+        std::istringstream statusLine(rawResponse.substr(0, statusLineEnd));
+        std::string httpVersion;
+        statusLine >> httpVersion >> response.status;
+        response.set_content(rawResponse.substr(bodyStart + 4), "application/json; charset=utf-8");
+        response.set_header("Access-Control-Allow-Origin", "*");
+        response.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        response.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    };
+    server.Get(R"(.*)", handle);
+    server.Post(R"(.*)", handle);
+    server.Options(R"(.*)", handle);
+
     std::cout << "====================================================\n";
     std::cout << " Banking Queue Simulator C++ API Server Online\n";
     std::cout << " Phase 2: Smart Counter Allocation (Min-Heap Enabled)\n";
-    std::cout << " Listening on: http://localhost:8080\n";
+    std::cout << " Listening on: http://0.0.0.0:" << port << "\n";
     std::cout << " Endpoints: /api/queue, /api/desks, /api/customer,\n";
     std::cout << "            /api/serve, /api/history, /api/stats, /api/reset\n";
     std::cout << "====================================================\n";
 
-    while (true) {
-        SOCKET client = accept(listener, nullptr, nullptr);
-        if (client == INVALID_SOCKET) break;
-
-        DWORD timeoutMs = 2500;
-        setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeoutMs), sizeof(timeoutMs));
-        setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&timeoutMs), sizeof(timeoutMs));
-
-        const std::string request = readRequest(client);
-        if (!request.empty()) {
-            const std::string response = handleRequest(bank, request);
-            send(client, response.c_str(), static_cast<int>(response.size()), 0);
-        }
-        closesocket(client);
+    if (!server.listen("0.0.0.0", port)) {
+        std::cerr << "Unable to start API on port " << port
+                  << ". Check if another process is using it.\n";
+        return 1;
     }
-
-    closesocket(listener);
-    WSACleanup();
     return 0;
 }

@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+find_package(Threads REQUIRED)
+
 # Prefer local third_party header if present
 find_path(NLOHMANN_JSON_INCLUDE_DIR "nlohmann/json.hpp"
   PATHS "${CMAKE_CURRENT_SOURCE_DIR}/third_party"
@@ -32,10 +34,8 @@ add_library(bank_core
 target_include_directories(bank_core PUBLIC include)
 
 add_executable(bank_server src/server.cpp)
-target_link_libraries(bank_server PRIVATE bank_core nlohmann_json::nlohmann_json)
-if(WIN32)
-  target_link_libraries(bank_server PRIVATE ws2_32)
-endif()
+target_link_libraries(bank_server PRIVATE bank_core nlohmann_json::nlohmann_json Threads::Threads)
+target_include_directories(bank_server PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
 
 add_executable(bank_tests tests/queue_manager_tests.cpp)
 target_link_libraries(bank_tests PRIVATE bank_core)

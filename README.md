@@ -26,7 +26,7 @@ Browser Frontend (http://localhost:5500)
         │
         │ JSON over HTTP (Port 8080) / CORS
         ▼
-C++ Winsock HTTP API (backend/src/server.cpp)
+C++ cross-platform HTTP API using vendored cpp-httplib (backend/src/server.cpp)
         │
         ▼
 Bank Class (service desk, history deque, statistics)
@@ -60,8 +60,15 @@ cd "backend"
 # Run pre-compiled server:
 .\bank_server.exe
 
-# Or recompile using MinGW g++:
-g++ -std=c++14 -O2 -I include -I third_party src/server.cpp src/Desk.cpp src/Bank.cpp src/QueueManager.cpp -lws2_32 -o bank_server.exe
+# Or recompile using a C++17 compiler with cpp-httplib support:
+g++ -std=c++17 -O2 -I include -I third_party src/server.cpp src/Desk.cpp src/Bank.cpp src/QueueManager.cpp -o bank_server.exe
+.\bank_server.exe
+```
+
+The server binds to `0.0.0.0`. Set `PORT` to override the default `8080`:
+
+```powershell
+$env:PORT = "8080"
 .\bank_server.exe
 ```
 
@@ -133,4 +140,22 @@ Queue, statistics, and recently served history data are stored in memory inside 
 
 ## Deployment Notes
 
-The frontend is static HTML, CSS, and vanilla JavaScript and can be served by any static web server. The C++ backend must run separately and be reachable by the frontend. Update the centralized API base URL in `frontend/app.js` when deploying the frontend and backend on different hosts. The supplied batch files target Windows; adapt the compiler and server commands for other platforms.
+The frontend is static HTML, CSS, and vanilla JavaScript and can be served by any static web server. The C++ backend must run separately and be reachable by the frontend. Update the centralized API base URL in `frontend/app.js` when deploying the frontend and backend on different hosts. The backend binds to `0.0.0.0` and reads its port from `PORT`, falling back to `8080` for local development. The supplied batch files target Windows; Linux can build it with the same source command and no Winsock library:
+
+```bash
+g++ -std=c++17 -O2 -pthread -I include -I third_party \
+  src/server.cpp src/Desk.cpp src/Bank.cpp src/QueueManager.cpp \
+  -o bank_server
+PORT=8080 ./bank_server
+```
+
+### Docker deployment
+
+Build and run the Linux image:
+
+```bash
+docker build -t banking-queue-simulator .
+docker run --rm -e PORT=8080 -p 8080:8080 banking-queue-simulator
+```
+
+The Docker build uses the vendored cpp-httplib and nlohmann/json headers, so no external C++ framework or database is required.

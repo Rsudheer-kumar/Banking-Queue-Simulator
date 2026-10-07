@@ -7,7 +7,7 @@ echo  Port: 8080 (http://localhost:8080)
 echo ===================================================
 if not exist "bank_server.exe" (
     echo Compiling bank_server.exe...
-    g++ -std=c++14 -O2 -I include -I third_party src/server.cpp src/Desk.cpp src/Bank.cpp src/QueueManager.cpp -lws2_32 -o bank_server.exe
+    g++ -std=c++17 -O2 -I include -I third_party src/server.cpp src/Desk.cpp src/Bank.cpp src/QueueManager.cpp -o bank_server.exe
     if errorlevel 1 (
         echo Compilation failed! Please check your C++ compiler.
         pause
