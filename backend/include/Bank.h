@@ -1,0 +1,25 @@
+#pragma once
+
+#include "QueueManager.h"
+#include <cstddef>
+#include <deque>
+#include <string>
+#include <vector>
+
+class Bank {
+public:
+    Customer addCustomer(const std::string& name, CustomerType type, int priority);
+    bool serveNext(Customer& served, int deskId = 0);
+    bool peekNext(Customer& next, int deskId = 0) const { return queues_.peekNext(next, deskId); }
+    void reset();
+
+    const QueueManager& queues() const { return queues_; }
+    QueueManager& queues() { return queues_; }
+    const std::deque<Customer>& history() const { return history_; }
+    std::size_t servedCount() const { return servedCount_; }
+
+private:
+    QueueManager queues_;
+    std::deque<Customer> history_;
+    std::size_t servedCount_{0};
+};

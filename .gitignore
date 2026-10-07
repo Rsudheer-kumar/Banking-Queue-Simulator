@@ -1,0 +1,10 @@
+build/
+.vs/
+.vscode/
+.venv/
+*.user
+*.suo
+*.swp
+*.exe
+*.log
+*.tmp

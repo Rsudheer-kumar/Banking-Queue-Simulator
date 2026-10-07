@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Banking Queue Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#"><span class="brand-mark">B</span><span>Northstar Bank <small>QUEUE OPERATIONS</small></span></a>
+    <div class="connection"><span id="connectionDot"></span><span id="connectionText">Connecting to C++ queue server...</span></div>
+  </header>
+  <main class="shell">
+    <section class="hero">
+      <div><p class="eyebrow">LIVE SERVICE DESK</p><h1>Banking Queue <em>Simulator</em></h1><p class="hero-copy">A real-time queue management workspace powered by C++ data structures.</p></div>
+      <div class="hero-actions"><button class="button button-quiet" id="demoButton">Load demo data</button><button class="button button-danger" id="resetButton">Reset simulator</button></div>
+    </section>
+    <section class="metrics" aria-label="Queue statistics">
+      <article class="metric"><span class="metric-icon blue">N</span><div><p>Normal waiting</p><strong id="normalWaiting">00</strong></div><small>FIFO queue</small></article>
+      <article class="metric"><span class="metric-icon amber">V</span><div><p>VIP waiting</p><strong id="vipWaiting">00</strong></div><small>Priority queue</small></article>
+      <article class="metric"><span class="metric-icon purple">Σ</span><div><p>Total waiting</p><strong id="totalWaiting">00</strong></div><small>Across all desks</small></article>
+      <article class="metric"><span class="metric-icon green">✓</span><div><p>Served today</p><strong id="totalServed">00</strong></div><small>Completed tokens</small></article>
+    </section>
+    <section class="workspace-grid">
+      <article class="panel add-panel">
+        <div class="panel-heading"><div><p class="eyebrow">CUSTOMER INTAKE</p><h2>Get a token</h2></div><span class="status-pill">OPEN</span></div>
+        <form id="customerForm">
+          <label for="customerName">Customer name</label><input id="customerName" maxlength="60" autocomplete="off" placeholder="e.g. Aisha Sharma" required>
+          <fieldset><legend>Customer type</legend><div class="choice-row">
+            <label class="choice"><input type="radio" name="customerType" value="NORMAL" checked><span><b>Normal</b><small>First in, first out</small></span></label>
+            <label class="choice vip-choice"><input type="radio" name="customerType" value="VIP"><span><b>VIP</b><small>Priority service</small></span></label>
+          </div></fieldset>
+          <div id="priorityWrap" class="hidden"><label for="priority">VIP priority</label><select id="priority"><option value="1">High priority</option><option value="2">Medium priority</option><option value="3">Low priority</option></select></div>
+          <button class="button button-primary full" type="submit">Get token <span>→</span></button>
+          <div id="formMessage" class="form-message" role="status"></div>
+        </form>
+      </article>
+      <article class="panel serve-panel">
+        <div class="panel-heading"><div><p class="eyebrow">MOST URGENT WAITING CUSTOMER</p><h2>Global next customer</h2></div><span class="desk-number" id="nextDesk">—</span></div>
+        <div id="nextPreview" class="next-preview"><span class="preview-label">WILL SERVE NEXT</span><strong id="nextToken">—</strong><p id="nextName">No customers waiting</p><span id="nextMeta" class="badge">Queue empty</span></div>
+        <button class="serve-button" id="serveButton"><span class="play">▶</span><span><b>Serve next customer</b><small>Apply priority scheduling algorithm</small></span><span>→</span></button>
+        <div id="serveMessage" class="form-message" role="status"></div>
+      </article>
+    </section>
+    <section class="panel counters-panel">
+      <div class="panel-heading"><div><p class="eyebrow">SMART COUNTER ALLOCATION</p><h2>Service counters</h2></div><span class="code-chip">4 DESKS · C++ MIN-HEAP</span></div>
+      <div id="deskCards" class="desk-grid"></div>
+    </section>
+    <section class="lower-grid">
+      <article class="panel visualization"><div class="panel-heading"><div><p class="eyebrow">UNDER THE HOOD</p><h2>DSA visualization</h2></div><span class="code-chip">C++ STL</span></div><div class="viz-block"><div class="viz-title"><span class="dot purple-dot"></span>Counter allocation — min-heap <small>lowest load → selected</small></div><div id="heapViz" class="heap-track"><span class="viz-empty">No desk state available</span></div></div><div id="deskViz"></div></article>
+      <article class="panel history-panel"><div class="panel-heading"><div><p class="eyebrow">AUDIT TRAIL</p><h2>Recently served</h2></div></div><div id="history" class="history-list"><div class="empty">No completed services yet</div></div></article>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="alert"></div>
+  <script src="app.js"></script>
+</body>
+</html>
