@@ -1,4 +1,4 @@
-const API = "http://localhost:8080/api";
+const API = "https://banking-queue-backend.onrender.com/api";
 const $ = (selector) => document.querySelector(selector);
 const state = { queue: null, history: [] };
 
