@@ -1,4 +1,4 @@
-# Banking Queue Simulator (Smart Counter Allocation)
+# SmartDesk Bank — Queue Simulator (Smart Counter Allocation)
 
 A real-time, browser-based data structures project for managing normal and VIP bank customers. The user interface is vanilla HTML/CSS/JavaScript, and every queue operation is executed by a C++ backend using real Standard Template Library (STL) data structures.
 
@@ -154,8 +154,8 @@ PORT=8080 ./bank_server
 Build and run the Linux image:
 
 ```bash
-docker build -t banking-queue-simulator .
-docker run --rm -e PORT=8080 -p 8080:8080 banking-queue-simulator
+docker build -t smartdesk-bank .
+docker run --rm -e PORT=8080 -p 8080:8080 smartdesk-bank
 ```
 
 The Docker build uses the vendored cpp-httplib and nlohmann/json headers, so no external C++ framework or database is required.

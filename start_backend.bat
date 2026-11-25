@@ -1,8 +1,8 @@
 @echo off
-title Banking Queue Simulator - C++ Backend
+title SmartDesk Bank - C++ Backend
 cd /d "%~dp0\backend"
 echo ===================================================
-echo  Starting Banking Queue Simulator C++ Backend
+echo  Starting SmartDesk Bank C++ Backend
 echo  Port: 8080 (http://localhost:8080)
 echo ===================================================
 if not exist "bank_server.exe" (

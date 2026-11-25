@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: banking-queue-backend
+    name: smartdesk-bank-backend
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile

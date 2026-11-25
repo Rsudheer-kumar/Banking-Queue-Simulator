@@ -136,7 +136,7 @@ std::string handleRequest(Bank& bank, const std::string& request) {
         return jsonResponse({
             {"success", true},
             {"status", "online"},
-            {"service", "Banking Queue Simulator C++ API Server (Smart Counter Allocation)"},
+            {"service", "SmartDesk Bank C++ API Server (Smart Counter Allocation)"},
             {"waitingTotal", bank.queues().totalWaiting()},
             {"countersCount", bank.queues().desks().size()}
         }, 200, "OK");
@@ -425,7 +425,7 @@ int main() {
     server.Options(R"(.*)", handle);
 
     std::cout << "====================================================\n";
-    std::cout << " Banking Queue Simulator C++ API Server Online\n";
+    std::cout << " SmartDesk Bank C++ API Server Online\n";
     std::cout << " Phase 2: Smart Counter Allocation (Min-Heap Enabled)\n";
     std::cout << " Listening on: http://0.0.0.0:" << port << "\n";
     std::cout << " Endpoints: /api/queue, /api/desks, /api/customer,\n";

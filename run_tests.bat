@@ -1,5 +1,5 @@
 @echo off
-title Banking Queue Simulator - DSA Unit Tests
+title SmartDesk Bank - DSA Unit Tests
 cd /d "%~dp0\backend"
 echo ===================================================
 echo  Compiling and Running C++ DSA Unit Tests
